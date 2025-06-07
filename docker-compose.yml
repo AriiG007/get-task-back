@@ -1,0 +1,61 @@
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: gettask-db
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: gettask
+      MYSQL_USER: gettaskuser
+      MYSQL_PASSWORD: root
+    volumes:
+      - dbdata:/var/lib/mysql
+    ports:
+      - "3307:3306"
+    networks:
+      - gettask_devyts_network
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: gettask-backend
+    working_dir: /opt/data
+    volumes:
+      - ./:/opt/data
+    depends_on:
+      - db
+    networks:
+      - gettask_devyts_network
+
+  webserver:
+    image: nginx:1.25
+    container_name: gettask-webserver
+    ports:
+      - "8000:80"
+    volumes:
+      - ./:/opt/data
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d
+    depends_on:
+      - api
+    networks:
+      - gettask_devyts_network
+
+  queue-worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: gettask-queueworker
+    working_dir: /opt/data
+    command: php artisan queue:work --queue=emails --tries=3 --sleep=5 --timeout=90
+    volumes:
+      - ./:/opt/data
+    depends_on:
+      - api
+    networks:
+      - gettask_devyts_network
+
+networks:
+  gettask_devyts_network:
+
+volumes:
+  dbdata:
